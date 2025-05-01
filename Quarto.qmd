@@ -1,5 +1,5 @@
 ---
-title: "Recurring‑Savings Visualiser"
+title: "Savings Visualiser"
 format:
   html:
     theme: minty
