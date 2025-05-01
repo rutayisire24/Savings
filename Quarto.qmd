@@ -3,6 +3,7 @@ title: "Savings Visualiser"
 format:
   html:
     theme: minty
+    css: styles.css
     code-link: false
 execute:
   freeze: auto   # static HTML still works
@@ -10,6 +11,7 @@ execute:
   warning: false
   message: false
 ---
+
 
 ```{ojs}
 import {Inputs} from "@observablehq/inputs";
@@ -19,73 +21,92 @@ import {Plot} from "@observablehq/plot";
 ### Plan settings
 
 ```{ojs}
-viewof freq = Inputs.select(["Daily","Weekly","Monthly"], { label: "Contribution frequency", value: "Daily" });
-viewof amount = Inputs.number({ label: "Amount per period (UGX)", value: 3000, step: 100, min: 100 });
-viewof pct = Inputs.range([1,100], { label: "% of days you save each year", value: 70, step: 5 });
-viewof yrs = Inputs.range([1,20], { label: "Projection horizon (years)", value: 5, step: 2 });
-viewof rate = Inputs.number({ label: "Annual interest rate (%)", value: 5, step: 5, min: 0  , max: 100});
+viewof freq = Inputs.select(["Daily","Weekly","Monthly"], {
+  label: "Contribution frequency",
+  value: "Daily"
+});
+viewof amount = Inputs.number({
+  label: "Amount per period (UGX)",
+  value: 3000,
+  step: 100,
+  min: 100
+});
+viewof pct = Inputs.number({
+  label: "% of days you save each year",
+  value: 70,
+  step: 5,
+  min: 1,
+  max: 100
+});
+viewof yrs = Inputs.number({
+  label: "Projection horizon (years)",
+  value: 5,
+  step: 1,
+  min: 1,
+  max: 20
+});
+viewof rate = Inputs.number({
+  label: "Annual interest rate (%)",
+  value: 5,
+  step: 0.1,
+  min: 0,
+  max: 100
+});
 ```
 
-------------------------------------------------------------------------
+---
 
 ### Projection summary
 
 ```{ojs}
-md`If you save **${amount.toLocaleString()} UGX** every **${freq}**, on **${pct}%** of the times each year for **${yrs} years**, at **${rate}%** p.a. (with a ±10% daily rate buffer), then:`
+md`If you save **${amount.toLocaleString()} UGX** every **${freq}**, on **${pct}%** of the days each year for **${yrs} years**, at **${rate}% p.a.** (±10% daily rate variation), then:`
 ```
 
-### Estimated Returns per Year
+### Estimated returns per year
 
 ```{ojs}
 proj = {
   const amt = Number(amount);
   const pctNum = Number(pct);
   const yrsNum = Number(yrs);
-  const totalPeriods = yrsNum * 365;       // always use daily compounding
-  const n = Math.round(pctNum/100 * 365);
+  const totalDays = yrsNum * 365;      // daily compounding
+  const daysSaved = Math.round(pctNum/100 * 365);
 
   // derive daily rates
-  const baseRate  = (1 + Number(rate)/100)**(1/365) - 1;
+  const baseRate = (1 + Number(rate)/100) ** (1/365) - 1;
   const bufferPct = 0.10;
-  const lowRate   = baseRate * (1 - bufferPct);
-  const highRate  = baseRate * (1 + bufferPct);
+  const lowRate = baseRate * (1 - bufferPct);
+  const highRate = baseRate * (1 + bufferPct);
 
-  // schedule contributions: repeat pattern of n days saved each year
-  const contrib = Array.from({length: totalPeriods}, (_, i) => (i % 365 < n ? amt : 0));
+  // build contributions array
+  const contrib = Array.from({length: totalDays}, (_, i) => (i % 365 < daysSaved ? amt : 0));
 
-  // compute growth factors for each deposit
-  const factors = (r) => Array.from({length: totalPeriods}, (_, i) => (1 + r)**(totalPeriods - i));
-  const baseFactors = factors(baseRate);
-  const lowFactors  = factors(lowRate);
-  const highFactors = factors(highRate);
+  // growth factors
+  const factor = (r) => Array.from({length: totalDays}, (_, i) => (1 + r) ** (totalDays - i));
+  const baseFactors = factor(baseRate);
+  const lowFactors = factor(lowRate);
+  const highFactors = factor(highRate);
 
-  // compute future value of each deposit
-  const fv = (c, f) => c.map((amt,i) => amt * f[i]);
-  const fvBase = fv(contrib, baseFactors);
-  const fvLow  = fv(contrib, lowFactors);
-  const fvHigh = fv(contrib, highFactors);
+  // apply factors to contributions
+  const apply = (arr, fac) => arr.map((c,i) => c * fac[i]);
+  const fvBase = apply(contrib, baseFactors);
+  const fvLow = apply(contrib, lowFactors);
+  const fvHigh = apply(contrib, highFactors);
 
-  // aggregate by year
-  const yearsData = Array.from({length: yrsNum}, (_, y) => {
-    const start = y * 365;
-    const end   = start + 365;
-    return {
-      Contributed: amt * n * (y + 1),
-      Base: fvBase.slice(start, end).reduce((sum,v) => sum + v, 0),
-      Low:  fvLow.slice(start, end).reduce((sum,v) => sum + v, 0),
-      High: fvHigh.slice(start, end).reduce((sum,v) => sum + v, 0)
-    };
-  });
-
-  // cumulative
+  // aggregate by year and cumulative sums
   let cumContrib = 0, cumBase = 0, cumLow = 0, cumHigh = 0;
-  return yearsData.map((d, i) => {
-    cumContrib += d.Contributed;
-    cumBase    += d.Base;
-    cumLow     += d.Low;
-    cumHigh    += d.High;
+  return Array.from({length: yrsNum}, (_, y) => {
+    const sliceStart = y * 365;
+    const sliceEnd = sliceStart + 365;
+    const yearBase = fvBase.slice(sliceStart, sliceEnd).reduce((s,v) => s + v, 0);
+    const yearLow = fvLow.slice(sliceStart, sliceEnd).reduce((s,v) => s + v, 0);
+    const yearHigh = fvHigh.slice(sliceStart, sliceEnd).reduce((s,v) => s + v, 0);
+    cumContrib += amt * daysSaved;
+    cumBase += yearBase;
+    cumLow += yearLow;
+    cumHigh += yearHigh;
     return {
-      Year: i+1,
+      Year: y + 1,
       Contributed: cumContrib,
       Future_Value: cumBase,
       Future_Value_Low: cumLow,
@@ -116,7 +137,8 @@ Plot.plot({
   marks: [
     Plot.ruleY(proj, {x: "Year", y1: "Future_Value_Low", y2: "Future_Value_High", stroke: "#888", strokeWidth: 2}),
     Plot.barY(proj, {x: "Year", y: "Future_Value", fill: "#ffcb05"}),
-    Plot.text(proj, {x: "Year", y: "Future_Value", text: d => (d.Future_Value/1e6).toFixed(2)+" M", dy: -6, textAnchor: "middle"})
+    Plot.text(proj, {x: "Year", y: "Future_Value", text: d => (d.Future_Value/1e6).toFixed(2) + " M", dy: -6, textAnchor: "middle"})
   ]
 });
 ```
+

@@ -1,0 +1,58 @@
+/* styles.css */
+
+/* Global font & background */
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #f8f9fa;
+  color: #333;
+  margin: 0;
+  padding: 0;
+}
+
+/* Card-like container for Inputs and Outputs */
+.page-content {
+  max-width: 900px;
+  margin: 1rem auto;
+  padding: 1rem;
+  background: #fff;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+/* Inputs styling */
+.observablehq-input {
+  margin-bottom: 1rem;
+}
+
+/* Table styling */
+table {
+  width: 100% !important;
+  border-collapse: collapse;
+}
+th, td {
+  padding: 0.5rem;
+  text-align: center;
+  border-bottom: 1px solid #dee2e6;
+}
+th {
+  background-color: #e9ecef;
+}
+
+/* Plot styling */
+.observablehq-plot {
+  margin-top: 1rem;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .page-content {
+    margin: 0.5rem;
+    padding: 0.5rem;
+  }
+  th, td {
+    padding: 0.3rem;
+  }
+}
