@@ -1,0 +1,114 @@
+---
+title: "Recurring‑Savings Visualiser"
+format:
+  html:
+    theme: minty
+    code-link: false
+execute:
+  freeze: auto   # static HTML still works
+  echo: false    # hide code blocks
+  warning: false
+  message: false
+---
+
+> **Interactive calculator** Adjust the sliders and watch the table & chart update.  
+
+```{ojs}
+import {Inputs, Plot} from "@observablehq/inputs";
+```
+
+### Plan settings
+
+```{ojs}
+viewof freq = Inputs.select(["Daily","Weekly","Monthly"], {
+  label: "Contribution frequency",
+  value: "Daily"
+})
+```
+
+```{ojs}
+viewof amount = Inputs.number({label: "Amount per period (UGX)", value: 3000, step: 100, min: 100})
+```
+
+```{ojs}
+viewof pct = Inputs.range([1,100], {label: "% of periods saved", value: 60, step:1})
+```
+
+```{ojs}
+viewof yrs = Inputs.range([1,10], {label: "Projection horizon (years)", value: 5, step:1})
+```
+
+```{ojs}
+viewof rate = Inputs.number({label: "Annual interest rate (%)", value: 4.9, step:0.1, min:0})
+```
+
+---
+
+### Projection summary
+
+```{ojs}
+md`${amount.toLocaleString()} UGX every **${freq}**, saving **${pct}%** of periods for **${yrs} years** at **${rate}% p.a.**`
+```
+
+### Data & calculations
+
+```{ojs}
+periodsPerYear = ({Daily:365, Weekly:52, Monthly:12})[freq]
+```
+
+```{ojs}
+perPeriodRate = (1 + Number(rate)/100) ** (1/periodsPerYear) - 1
+```
+
+```{ojs}
+proj = {
+  const amt = Number(amount);
+  const n = Math.round(Number(pct)/100 * periodsPerYear);
+  const totalPeriods = Number(yrs) * periodsPerYear;
+  const contribVec = Array.from({length: totalPeriods}, (_, i)=> (i % periodsPerYear < n ? amt : 0));
+  const growth = Array.from({length: totalPeriods}, (_, i)=> (1+perPeriodRate)**(totalPeriods - i));
+  const fvEach = contribVec.map((c,i)=>c * growth[i]);
+  const byYear = Array.from({length: yrs}, (_, y)=>{
+    const slice = fvEach.slice(y * periodsPerYear, (y+1) * periodsPerYear);
+    return slice.reduce((a,b)=>a+b,0);
+  });
+  const cumFV = byYear.reduce((acc,v)=>{acc.push((acc.at(-1)||0)+v); return acc}, []);
+  const yearlyContrib = amt * n;
+  const cumContrib = Array.from({length: yrs}, (_, y)=> yearlyContrib * (y+1));
+  return cumContrib.map((c,i)=>({Year: i+1, Contributed: c, Future_Value: cumFV[i]}));
+}
+```
+
+```{ojs}
+Inputs.table(proj, {
+  columns:["Year","Contributed","Future_Value"],
+  format:{
+    Contributed:v=>v.toLocaleString(),
+    Future_Value:v=>v.toLocaleString(undefined,{maximumFractionDigits:0})
+  }
+})
+```
+
+### Growth chart
+
+```{ojs}
+Plot.plot({
+  y: {label: ""},  // hide axis title
+  x: {label: "Year"},
+  marks: [
+    // bars
+    Plot.barY(proj, {x: "Year", y: "Future_Value", fill: "#ffcb05"}),
+    // value labels in Millions
+    Plot.text(proj, {
+      x: "Year",
+      y: "Future_Value",
+      text: d => (d.Future_Value / 1e6).toFixed(2) + " M",
+      dy: -6,
+      textAnchor: "middle",
+      fontSize: 12,
+      fill: "black"
+    })
+  ]
+})
+```
+
