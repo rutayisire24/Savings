@@ -28,8 +28,8 @@ viewof freq = Inputs.select(["Daily","Weekly","Monthly"], {
 viewof amount = Inputs.number({
   label: "Amount per period (UGX)",
   value: 3000,
-  step: 100,
-  min: 100
+  step: 1000,
+  min: 1000
 });
 viewof pct = Inputs.number({
   label: "% of days you save each year",
