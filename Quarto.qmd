@@ -11,7 +11,7 @@ execute:
   message: false
 ---
 
-> **Interactive calculator** Adjust the sliders and watch the table & chart update.
+
 
 ```{ojs}
 import {Inputs} from "@observablehq/inputs";
@@ -32,7 +32,7 @@ viewof amount = Inputs.number({label: "Amount per period (UGX)", value: 3000, st
 ```
 
 ```{ojs}
-viewof pct = Inputs.range([1,100], {label: "% of periods saved", value: 60, step:1})
+viewof pct = Inputs.range([1,100], {label: "% of periods saved (Annualy) ", value: 60, step:1})
 ```
 
 ```{ojs}
@@ -48,7 +48,8 @@ viewof rate = Inputs.number({label: "Annual interest rate (%)", value: 4.9, step
 ### Projection summary
 
 ```{ojs}
-md`${amount.toLocaleString()} UGX every **${freq}**, saving **${pct}%** of periods for **${yrs} years** at **${rate}% p.a.**`
+
+md`If you save **${amount.toLocaleString()} UGX**  **${freq}**, for **${pct}%** of the year, over **${yrs} years**, at an annual interest rate of **${rate}%**, then:`
 ```
 
 ### Data & calculations
