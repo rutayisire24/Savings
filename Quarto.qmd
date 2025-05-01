@@ -52,7 +52,7 @@ viewof rate = Inputs.number({label: "Annual interest rate (%)", value: 4.9, step
 md`If you save **${amount.toLocaleString()} UGX**  **${freq}**, for **${pct}%** of the year, over **${yrs} years**, at an annual interest rate of **${rate}%**, then:`
 ```
 
-### Data & calculations
+### Estimated Returns per year 
 
 ```{ojs}
 periodsPerYear = ({Daily:365, Weekly:52, Monthly:12})[freq]
