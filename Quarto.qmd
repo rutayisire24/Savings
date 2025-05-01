@@ -31,7 +31,7 @@ viewof rate = Inputs.number({ label: "Annual interest rate (%)", value: 5, step:
 ### Projection summary
 
 ```{ojs}
-md`If you save **${amount.toLocaleString()} UGX** every **${freq}**, on **${pct}%** of the days each year for **${yrs} years**, at **${rate}%** p.a. (with a ±10% daily rate buffer), then:`
+md`If you save **${amount.toLocaleString()} UGX** every **${freq}**, on **${pct}%** of the times each year for **${yrs} years**, at **${rate}%** p.a. (with a ±10% daily rate buffer), then:`
 ```
 
 ### Estimated Returns per Year
