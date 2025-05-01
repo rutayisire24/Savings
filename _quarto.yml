@@ -1,9 +1,9 @@
 project:
   type: website
+  output-dir: docs     # ← here, not under website
 
 website:
   title: "Savings"
-  output-dir: docs
 
 format:
   html:
