@@ -6,14 +6,14 @@ format:
     css: styles.css
     code-link: false
 execute:
-  freeze: auto   # static HTML still works
-  echo: false    # hide code blocks
+  freeze: auto    # static HTML still works
+  echo: false     # hide code blocks
   warning: false
   message: false
 ---
 
-
 ```{ojs}
+// Import necessary libraries (assuming this is already done above)
 import {Inputs} from "@observablehq/inputs";
 import {Plot} from "@observablehq/plot";
 ```
@@ -21,36 +21,54 @@ import {Plot} from "@observablehq/plot";
 ### Plan settings
 
 ```{ojs}
-viewof freq = Inputs.select(["Daily","Weekly","Monthly"], {
+// Input for contribution frequency
+viewof freq = Inputs.select(["Daily", "Weekly", "Monthly"], {
   label: "Contribution frequency",
-  value: "Daily"
+  value: "Daily" // Default value
 });
+
+// Input for the amount contributed per period
 viewof amount = Inputs.number({
   label: "Amount per period (UGX)",
-  value: 3000,
-  step: 1000,
-  min: 1000
+  value: 3000, // Default value
+  step: 1000,  // Increment step
+  min: 1000    // Minimum allowed value
 });
+
+// Input for the percentage of periods saved per year
 viewof pct = Inputs.number({
-  label: "% of days you save each year",
-  value: 70,
-  step: 5,
-  min: 1,
-  max: 100
+  label: "% of periods you save each year", // Clarified label
+  value: 70,   // Default value
+  step: 5,     // Increment step
+  min: 1,      // Minimum allowed value
+  max: 100     // Maximum allowed value
 });
+
+// Input for the projection horizon in years
 viewof yrs = Inputs.number({
   label: "Projection horizon (years)",
-  value: 5,
-  step: 1,
-  min: 1,
-  max: 20
+  value: 5,    // Default value
+  step: 1,     // Increment step
+  min: 1,      // Minimum allowed value
+  max: 20      // Maximum allowed value
 });
+
+// Input for the gross annual interest rate
 viewof rate = Inputs.number({
-  label: "Annual interest rate (%)",
-  value: 5,
-  step: 0.1,
-  min: 0,
-  max: 100
+  label: "Annual gross interest rate (%)", // Clarified label
+  value: 5,    // Default value
+  step: 0.1,   // Increment step
+  min: 0,      // Minimum allowed value
+  max: 100     // Maximum allowed value
+});
+
+// Input for the annual management fee
+viewof mgmtFee = Inputs.number({
+  label: "Annual management fee (%)",
+  value: 1.0,  // Default value (e.g., 1%)
+  step: 0.1,   // Increment step
+  min: 0,      // Minimum allowed value
+  max: 10      // Reasonable maximum for fees
 });
 ```
 
@@ -59,86 +77,145 @@ viewof rate = Inputs.number({
 ### Projection summary
 
 ```{ojs}
-md`If you save **${amount.toLocaleString()} UGX** every **${freq}**, on **${pct}%** of the days each year for **${yrs} years**, at **${rate}% p.a.** (±10% daily rate variation), then:`
+// Helper calculation for the summary text below
+periodsPerYear_summary = {
+  const f = freq; // Get the current value of the 'freq' input
+  if (f === "Daily") return 365;
+  if (f === "Weekly") return 52;
+  if (f === "Monthly") return 12;
+  return 0; // Fallback, should not be reached with select input
+}
+```
+
+```{ojs}
+// Display a dynamic summary sentence based on the inputs
+md`If you save **${amount.toLocaleString()} UGX** per period (**${freq}**), contributing during **${pct}%** of the periods each year for **${yrs} years**, with a gross annual interest rate of **${rate}%** and an annual management fee of **${mgmtFee}%**, then:`
 ```
 
 ### Estimated returns per year
 
 ```{ojs}
+// Main calculation block for the projection
 proj = {
-  const amt = Number(amount);
-  const pctNum = Number(pct);
-  const yrsNum = Number(yrs);
-  const totalDays = yrsNum * 365;      // daily compounding
-  const daysSaved = Math.round(pctNum/100 * 365);
+  // --- Get Input Values ---
+  const amt = Number(amount); // Contribution amount per period
+  const pctNum = Number(pct) / 100; // Percentage saved, as a decimal
+  const yrsNum = Number(yrs); // Projection horizon in years
+  const annualRate = Number(rate) / 100; // Gross annual interest rate, as a decimal
+  const annualFee = Number(mgmtFee) / 100; // Annual management fee, as a decimal
+  const frequency = freq; // Selected contribution frequency
 
-  // derive daily rates
-  const baseRate = (1 + Number(rate)/100) ** (1/365) - 1;
-  const bufferPct = 0.10;
-  const lowRate = baseRate * (1 - bufferPct);
-  const highRate = baseRate * (1 + bufferPct);
+  // --- Calculate Contribution Details ---
+  let periodsPerYear; // Determine contribution periods based on frequency
+  if (frequency === "Daily") {
+    periodsPerYear = 365;
+  } else if (frequency === "Weekly") {
+    periodsPerYear = 52;
+  } else { // Monthly
+    periodsPerYear = 12;
+  }
 
-  // build contributions array
-  const contrib = Array.from({length: totalDays}, (_, i) => (i % 365 < daysSaved ? amt : 0));
+  // Calculate total principal intended to be contributed annually
+  const totalAnnualPrincipalContribution = amt * periodsPerYear * pctNum;
 
-  // growth factors
-  const factor = (r) => Array.from({length: totalDays}, (_, i) => (1 + r) ** (totalDays - i));
-  const baseFactors = factor(baseRate);
-  const lowFactors = factor(lowRate);
-  const highFactors = factor(highRate);
+  // Calculate an effective daily contribution amount for the simulation
+  // This averages the total annual contribution over 365 days
+  const effectiveDailyContribution = totalAnnualPrincipalContribution / 365;
 
-  // apply factors to contributions
-  const apply = (arr, fac) => arr.map((c,i) => c * fac[i]);
-  const fvBase = apply(contrib, baseFactors);
-  const fvLow = apply(contrib, lowFactors);
-  const fvHigh = apply(contrib, highFactors);
+  // --- Calculate Net Growth Rate ---
+  // Calculate the net annual growth factor after deducting the fee
+  // Formula: Net Growth = (1 + Gross Rate) * (1 - Fee Rate)
+  const netAnnualGrowthFactor = (1 + annualRate) * (1 - annualFee);
 
-  // aggregate by year and cumulative sums
-  let cumContrib = 0, cumBase = 0, cumLow = 0, cumHigh = 0;
-  return Array.from({length: yrsNum}, (_, y) => {
-    const sliceStart = y * 365;
-    const sliceEnd = sliceStart + 365;
-    const yearBase = fvBase.slice(sliceStart, sliceEnd).reduce((s,v) => s + v, 0);
-    const yearLow = fvLow.slice(sliceStart, sliceEnd).reduce((s,v) => s + v, 0);
-    const yearHigh = fvHigh.slice(sliceStart, sliceEnd).reduce((s,v) => s + v, 0);
-    cumContrib += amt * daysSaved;
-    cumBase += yearBase;
-    cumLow += yearLow;
-    cumHigh += yearHigh;
-    return {
-      Year: y + 1,
-      Contributed: cumContrib,
-      Future_Value: cumBase,
-      Future_Value_Low: cumLow,
-      Future_Value_High: cumHigh
-    };
-  });
+  // Calculate the equivalent net daily growth rate from the annual factor
+  // Handle the edge case where net factor might be <= 0 (e.g., fee >= 100% + rate)
+  const dailyNetRate = netAnnualGrowthFactor > 0 ? netAnnualGrowthFactor ** (1 / 365) - 1 : -1;
+
+  // Optional: Warning if high fees cause negative net growth
+  if (dailyNetRate === -1) {
+    console.warn("Warning: Annual management fee potentially exceeds or matches growth rate, leading to loss.");
+    // Consider returning an empty array or specific structure to indicate the issue in the output
+    // return []; // Example: return empty data
+  }
+
+  // --- Simulation ---
+  let balance = 0; // Starting balance
+  let cumulativeContribution = 0; // Track total principal contributed
+  const results = []; // Array to store results for each year
+  const totalDays = yrsNum * 365; // Total number of days in the simulation
+
+  // Loop through each day of the projection horizon
+  for (let day = 1; day <= totalDays; day++) {
+    // 1. Add the effective daily contribution for the current day
+    //    (Contribution happens at the start of the day)
+    balance += effectiveDailyContribution;
+    cumulativeContribution += effectiveDailyContribution; // Update total contributed
+
+    // 2. Apply the net daily growth rate to the balance
+    balance = balance * (1 + dailyNetRate);
+
+    // 3. Store results at the end of each year
+    if (day % 365 === 0) {
+      const currentYear = day / 365; // Calculate the year number
+      results.push({
+        Year: currentYear,
+        Contributed: cumulativeContribution, // Total principal contributed up to this year
+        Future_Value: balance // Account balance at the end of this year
+      });
+    }
+  }
+
+  // Return the array of yearly results
+  return results;
 }
 ```
 
+### Results Table
+
 ```{ojs}
+// Display the projection results in a table
 Inputs.table(proj, {
-  columns: ["Year","Contributed","Future_Value","Future_Value_Low","Future_Value_High"],
-  format: {
-    Contributed: v => v.toLocaleString(),
-    Future_Value: v => v.toLocaleString(undefined,{maximumFractionDigits:0}),
-    Future_Value_Low: v => v.toLocaleString(undefined,{maximumFractionDigits:0}),
-    Future_Value_High: v => v.toLocaleString(undefined,{maximumFractionDigits:0})
+  columns: ["Year", "Contributed", "Future_Value"], // Specify columns to display
+  format: { // Format numerical columns for better readability
+    Contributed: v => v.toLocaleString(undefined, {maximumFractionDigits: 0}), // Format as integer UGX
+    Future_Value: v => v.toLocaleString(undefined, {maximumFractionDigits: 0}) // Format as integer UGX
   }
 });
 ```
 
-### Growth chart
+### Growth Chart
 
 ```{ojs}
+// Display the projection results as a plot
 Plot.plot({
-  x: {label: "Year"},
-  y: {label: ""},
+  // Configure axes
+  x: {label: "Year"}, // X-axis label
+  y: {label: "Amount (UGX)", grid: true}, // Y-axis label with grid lines
+
+  // Define plot marks (visual elements)
   marks: [
-    Plot.ruleY(proj, {x: "Year", y1: "Future_Value_Low", y2: "Future_Value_High", stroke: "#888", strokeWidth: 2}),
-    Plot.barY(proj, {x: "Year", y: "Future_Value", fill: "#ffcb05"}),
-    Plot.text(proj, {x: "Year", y: "Future_Value", text: d => (d.Future_Value/1e6).toFixed(2) + " M", dy: -6, textAnchor: "middle"})
-  ]
+    // Bar chart showing the Future Value at the end of each year
+    Plot.barY(proj, {x: "Year", y: "Future_Value", fill: "#ffcb05"}), // Amber color bars
+
+    // Line chart showing the cumulative Contributed amount over time
+    Plot.lineY(proj, {x: "Year", y: "Contributed", stroke: "#00274c", strokeWidth: 2}), // Navy color line
+
+    // Text labels on top of the bars showing the Future Value in millions
+    Plot.text(proj, {
+        x: "Year",
+        y: "Future_Value",
+        text: d => (d.Future_Value / 1e6).toFixed(2) + " M", // Format value as Millions (e.g., "1.23 M")
+        dy: -8, // Vertical offset for the text (places it slightly above the bar)
+        fill: "#00274c", // Text color matching the contribution line
+        fontWeight: "bold" // Make text bold
+     })
+  ],
+
+  // Configure the color legend
+  color: {
+    domain: ["Future Value (Bar)", "Contributions (Line)"], // Legend labels
+    range: ["#ffcb05", "#00274c"], // Colors corresponding to the labels
+    legend: true // Display the legend
+  }
 });
 ```
-
