@@ -13,7 +13,6 @@ execute:
 ---
 
 ```{ojs}
-// Import necessary libraries (assuming this is already done above)
 import {Inputs} from "@observablehq/inputs";
 import {Plot} from "@observablehq/plot";
 ```
